@@ -1,0 +1,322 @@
+-- South Bronx: The Trenches | Zero-Lag Aim + UI + FOV + Line
+-- Dapur: ollie's bench | absolute ollie
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+    Enabled = true,
+    AimMode = "Mouse", -- "Mouse" atau "Crosshair"
+    FOV = 150,
+    ShowFOV = true,
+    ShowLine = true,
+    TeamCheck = false,
+    HitPart = "Head",
+    Minimized = false,
+    TargetScanRate = 0.08, -- Scan target 12.5x/detik
+    LineUpdateRate = 0.03  -- Update garis ~33x/detik (lebih enteng dari tiap frame)
+}
+
+if getgenv().OllieSB_V2_Cleanup then
+    pcall(getgenv().OllieSB_V2_Cleanup)
+end
+
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "OllieSB_V2"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local parentOk = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not parentOk or not ScreenGui.Parent then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 244, 0, 226)
+MainFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(255, 60, 140)
+Stroke.Thickness = 1.5
+Stroke.Parent = MainFrame
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 32)
+TopBar.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "SOUTH BRONX // SMOOTH"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 12
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 24, 0, 22)
+MinBtn.Position = UDim2.new(1, -30, 0.5, -11)
+MinBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 15
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Parent = TopBar
+
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -16, 1, -40)
+Content.Position = UDim2.new(0, 8, 0, 36)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 6)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Content
+
+local function MakeBtn(label, order, fn)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, 0, 0, 29)
+    b.LayoutOrder = order
+    b.BackgroundColor3 = Color3.fromRGB(34, 34, 46)
+    b.Text = label
+    b.TextColor3 = Color3.fromRGB(240, 240, 245)
+    b.TextSize = 12
+    b.Font = Enum.Font.GothamSemibold
+    b.Parent = Content
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    b.MouseButton1Click:Connect(function()
+        fn(b)
+    end)
+    return b
+end
+
+MinBtn.MouseButton1Click:Connect(function()
+    Config.Minimized = not Config.Minimized
+    Content.Visible = not Config.Minimized
+    MainFrame.Size = Config.Minimized and UDim2.new(0, 244, 0, 32) or UDim2.new(0, 244, 0, 226)
+    MinBtn.Text = Config.Minimized and "+" or "-"
+end)
+
+MakeBtn("Silent Aim: ON", 1, function(b)
+    Config.Enabled = not Config.Enabled
+    b.Text = "Silent Aim: " .. (Config.Enabled and "ON" or "OFF")
+    b.BackgroundColor3 = Config.Enabled and Color3.fromRGB(34, 34, 46) or Color3.fromRGB(85, 35, 45)
+end)
+
+MakeBtn("Aim Mode: Aim Follow Mouse", 2, function(b)
+    if Config.AimMode == "Mouse" then
+        Config.AimMode = "Crosshair"
+        b.Text = "Aim Mode: Aim Follow Crosshair"
+    else
+        Config.AimMode = "Mouse"
+        b.Text = "Aim Mode: Aim Follow Mouse"
+    end
+end)
+
+MakeBtn("FOV Circle: ON", 3, function(b)
+    Config.ShowFOV = not Config.ShowFOV
+    b.Text = "FOV Circle: " .. (Config.ShowFOV and "ON" or "OFF")
+end)
+
+MakeBtn("Target Line: ON", 4, function(b)
+    Config.ShowLine = not Config.ShowLine
+    b.Text = "Target Line: " .. (Config.ShowLine and "ON" or "OFF")
+end)
+
+MakeBtn("Unload Script", 5, function()
+    if getgenv().OllieSB_V2_Cleanup then
+        pcall(getgenv().OllieSB_V2_Cleanup)
+    end
+end)
+
+-- Drawing Objects
+local FOVCircle, TargetLine
+pcall(function()
+    FOVCircle = Drawing.new("Circle")
+    FOVCircle.Thickness = 1.5
+    FOVCircle.NumSides = 24
+    FOVCircle.Radius = Config.FOV
+    FOVCircle.Filled = false
+    FOVCircle.Visible = Config.ShowFOV
+    FOVCircle.ZIndex = 999
+    FOVCircle.Transparency = 0.85
+    FOVCircle.Color = Color3.fromRGB(255, 60, 140)
+
+    TargetLine = Drawing.new("Line")
+    TargetLine.Thickness = 1.5
+    TargetLine.Transparency = 0.9
+    TargetLine.Visible = false
+    TargetLine.ZIndex = 999
+    TargetLine.Color = Color3.fromRGB(0, 255, 170)
+end)
+
+local function GetRefPoint()
+    local cam = Workspace.CurrentCamera
+    if not cam then return Vector2.zero end
+    if Config.AimMode == "Crosshair" then
+        local vp = cam.ViewportSize
+        return Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+    end
+    return UserInputService:GetMouseLocation()
+end
+
+local CachedTargetPart = nil
+local CachedScreenPos = nil
+local LastTargetScan = 0
+local LastLineUpdate = 0
+local Unloaded = false
+
+local function ScanTarget(refPoint)
+    local cam = Workspace.CurrentCamera
+    if not cam then
+        CachedTargetPart = nil
+        CachedScreenPos = nil
+        return
+    end
+
+    local bestPart = nil
+    local bestScreen = nil
+    local fovSq = Config.FOV * Config.FOV
+    local list = Players:GetPlayers()
+
+    for i = 1, #list do
+        local plr = list[i]
+        if plr ~= LocalPlayer then
+            if not (Config.TeamCheck and plr.Team == LocalPlayer.Team) then
+                local char = plr.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local part = char:FindFirstChild(Config.HitPart) or char:FindFirstChild("HumanoidRootPart")
+                    if part and part:IsA("BasePart") then
+                        local pos, onScreen = cam:WorldToViewportPoint(part.Position)
+                        if onScreen and pos.Z > 0 then
+                            local dx = pos.X - refPoint.X
+                            local dy = pos.Y - refPoint.Y
+                            local dSq = dx * dx + dy * dy
+                            if dSq < fovSq then
+                                fovSq = dSq
+                                bestPart = part
+                                bestScreen = Vector2.new(pos.X, pos.Y)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    CachedTargetPart = bestPart
+    CachedScreenPos = bestScreen
+end
+
+local RenderConn = RunService.RenderStepped:Connect(function()
+    if Unloaded then return end
+
+    if not Config.Enabled then
+        CachedTargetPart = nil
+        CachedScreenPos = nil
+        if FOVCircle then FOVCircle.Visible = false end
+        if TargetLine then TargetLine.Visible = false end
+        return
+    end
+
+    local now = os.clock()
+    local ref = GetRefPoint()
+
+    if (now - LastTargetScan) >= Config.TargetScanRate then
+        LastTargetScan = now
+        ScanTarget(ref)
+    end
+
+    if FOVCircle then
+        FOVCircle.Position = ref
+        FOVCircle.Radius = Config.FOV
+        FOVCircle.Visible = Config.ShowFOV
+    end
+
+    if (now - LastLineUpdate) >= Config.LineUpdateRate then
+        LastLineUpdate = now
+        if TargetLine and Config.ShowLine and CachedTargetPart then
+            local cam = Workspace.CurrentCamera
+            if cam and CachedTargetPart.Parent then
+                local p, vis = cam:WorldToViewportPoint(CachedTargetPart.Position)
+                if vis and p.Z > 0 then
+                    TargetLine.From = ref
+                    TargetLine.To = Vector2.new(p.X, p.Y)
+                    TargetLine.Visible = true
+                else
+                    TargetLine.Visible = false
+                end
+            else
+                TargetLine.Visible = false
+            end
+        elseif TargetLine then
+            TargetLine.Visible = false
+        end
+    end
+end)
+
+if not getgenv().OllieSB_V2_Hooked then
+    getgenv().OllieSB_V2_Hooked = true
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        if checkcaller() or Unloaded or not Config.Enabled or not CachedTargetPart then
+            return oldNamecall(self, ...)
+        end
+
+        if self == Workspace then
+            local method = getnamecallmethod()
+            if method == "Raycast" then
+                local args = {...}
+                local origin = args[1]
+                if typeof(origin) == "Vector3" then
+                    args[2] = (CachedTargetPart.Position - origin).Unit * 1000
+                    return oldNamecall(self, unpack(args))
+                end
+            elseif method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList" then
+                local args = {...}
+                local ray = args[1]
+                if typeof(ray) == "Ray" then
+                    args[1] = Ray.new(ray.Origin, (CachedTargetPart.Position - ray.Origin).Unit * 1000)
+                    return oldNamecall(self, unpack(args))
+                end
+            end
+        end
+
+        return oldNamecall(self, ...)
+    end))
+end
+
+getgenv().OllieSB_V2_Cleanup = function()
+    Unloaded = true
+    if RenderConn then
+        pcall(function() RenderConn:Disconnect() end)
+    end
+    pcall(function() if FOVCircle then FOVCircle:Remove() end end)
+    pcall(function() if TargetLine then TargetLine:Remove() end end)
+    pcall(function() ScreenGui:Destroy() end)
+end
